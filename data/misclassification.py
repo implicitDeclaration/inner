@@ -1,7 +1,6 @@
 import os
 import sys
 
-sys.path.append('/public/czh/repair/')
 import torch
 import torchvision.transforms as transforms
 import numpy as np

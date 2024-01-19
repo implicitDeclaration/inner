@@ -1,7 +1,6 @@
 import torch
 import sys
-sys.path.append('/public/czh/repair/data/attack_type')
-sys.path.append('/public/czh/repair/')
+sys.path.append('~/data/attack_type')
 
 from torch.utils.data import DataLoader
 from abstractAdversary import AbstractAdversary

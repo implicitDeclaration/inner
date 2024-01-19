@@ -11,6 +11,7 @@ def parse_arguments():
     parser.add_argument(
         "--mode", help="train models and probes, repair model, or test models", type=str, default='train',
     )
+
     parser.add_argument(
         "--continue_train", help="train bd models from a trained model", action='store_true',
     )

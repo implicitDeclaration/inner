@@ -2,7 +2,7 @@
 
 """
 # import sys
-# sys.path.append('/public/czh/repair/utils')
+# sys.path.append('~/utils')
 import torch
 import torchvision
 import os
@@ -110,12 +110,14 @@ class AddGaussianNoise(object):
 
 # for standard model
 # 直接取一部分的训练集数据作为参照
-def get_standard(process, proj_root="", num=1000, seed=0, train=False,
+def get_standard(process, num=1000, seed=0, train=False,
                  set='cifar10'):
     if 'cifar10' in set:
         set = 'cifar10'
     roots = {'cifar10': "./datasets/cifar10", 'svhn': "./datasets/svhn", 'gtsrb': "./datasets/gtsrb", 'imagenet': "./datasets/imagenet"}
     root = roots[set]
+    if not os.path.exists(root):
+        os.makedirs(root)
     cifar10_norm = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262] )
     shift_norm= transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.4, 0.4, 0.4])
     svhn_norm = transforms.Normalize(mean=[0.5, 0.5, 0.5],std=[0.5, 0.5, 0.5])
@@ -190,6 +192,8 @@ def get_backdoor(process, num=1000, train=True, mode='ptest', model_seed=2022, a
     roots = {'cifar10': "./datasets/cifar10", 'svhn': "./datasets/svhn", 'gtsrb': "./datasets/gtsrb",
             'imagenet': './datasets/imagenet', }
     root = roots[root_set]
+    if not os.path.exists(root):
+        os.makedirs(root)
     std_normalize = {'cifar10': cifar10_norm, 'svhn': svhn_norm, 'mnist': mnist_norm,
                      'gtsrb': gtsrb_norm, 'imagenet': imgset_norm}
 

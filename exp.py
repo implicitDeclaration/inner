@@ -227,9 +227,9 @@ def layer_probe_per_model(bd_model, visclean_loader, visbd_loader, device, set_l
         c_per_img = []
         for l in range(len(cpreds)):
             clayer1 = cpreds[l].cpu().detach().numpy().squeeze()
-            cnorm = np.linalg.norm(clayer1)
+            # cnorm = np.linalg.norm(clayer1)
             # l2 normalization
-            clayer1 = clayer1/cnorm #+ 0.99
+            clayer1 = softmax(clayer1)
             c_per_img.append(clayer1)
         clayers.append(c_per_img)
         if successed == num:
@@ -250,9 +250,9 @@ def layer_probe_per_model(bd_model, visclean_loader, visbd_loader, device, set_l
         b_per_img = []
         for l in range(len(bpreds)):
             blayer1 = bpreds[l].cpu().detach().numpy().squeeze()
-            bnorm = np.linalg.norm(blayer1)
+            # bnorm = np.linalg.norm(blayer1)
             # l2 normalization
-            blayer1 = blayer1/bnorm #+ 0.99
+            blayer1 = softmax(blayer1)
             b_per_img.append(blayer1)
         blayers.append(b_per_img)
         if successed == num:
@@ -347,7 +347,7 @@ def anomaly_select(PROBE_NUM, model, bd_loader, nor_loader, set_label2=None, tri
                 cnorm = np.linalg.norm(clayer1)
                 # l2 normalization
                 if NO_normalization:
-                    clayer1 = clayer1
+                    clayer1 = softmax(clayer1)
                 else:
                     clayer1 = clayer1 / cnorm
                 c_per_img.append(clayer1)
@@ -375,7 +375,7 @@ def anomaly_select(PROBE_NUM, model, bd_loader, nor_loader, set_label2=None, tri
                 bnorm = np.linalg.norm(blayer1)
                 # l2 normalization
                 if NO_normalization:
-                    blayer1 = blayer1
+                    blayer1 = softmax(blayer1)
                 else:
                     blayer1 = blayer1 / bnorm
 
@@ -390,7 +390,7 @@ def anomaly_select(PROBE_NUM, model, bd_loader, nor_loader, set_label2=None, tri
         for l in range(PROBE_NUM):
             c_means = np.mean(clayers[:, l], axis=0)
             b_means = np.mean(blayers[:, l], axis=0)
-            c_means, b_means = softmax(c_means), softmax(b_means)
+            # c_means, b_means = softmax(c_means), softmax(b_means)
             #conf_dif = clayers[:, l] - blayers[:, l]
 
             # print(conf_dif)

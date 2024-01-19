@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append('/public/czh/repair/data/attack_type/')
+sys.path.append('~/data/attack_type/')
 import numpy as np
 
 import torch

@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/public/czh/repair/data/attack_type')
+sys.path.append('~/data/attack_type')
 
 import torch
 import torch.nn.functional as F
