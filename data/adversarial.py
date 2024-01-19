@@ -11,11 +11,11 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import ConcatDataset, TensorDataset, DataLoader, Dataset
 import torch.nn.functional as F
-from attack_type.fgsm import FGSM
-from attack_type.carlinl2 import CarliniL2
+from data.attack_type.fgsm import FGSM
+from data.attack_type.carlinl2 import CarliniL2
 # from data.attack_type.jsma import *
 #from data.attack_type.deepfool import DeepFool
-from attack_type.onepixel import *
+from data.attack_type.onepixel import *
 #from data.attack_util import *
 from utils.make_dataset import get_standard
 from utils.utils import pretrained
