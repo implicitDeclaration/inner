@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append('~/data/attack_type')
+sys.path.append('~/data/')
 import torch
 import logging
 import numpy as np
