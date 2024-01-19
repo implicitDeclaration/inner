@@ -5,6 +5,10 @@ Code to the paper "Interpretability based Neural Network Repair".
 
 The implementation of this project is based on pytorch 1.13 with python 3.7.0 
 
+INNER was evaluated on CIFAR10, CIFAR100, GTSRB, and ImageNet10. CIFAR10 and CIFAR100 can be downloaded automatically (in *~/datasets* by default). GTSRB and ImageNet10 need to be placed in the dataset folder. I will upload ImageNet10 soon.
+
+Modify `get_standard` and `get_backdoor` functions in *~/utils/makedataset.py* if you want to train models on your own data.
+
 
 # Useage
 put your dataset, e.g., cifar10 in the folder of './dataset/cifar10', so the code can find the data

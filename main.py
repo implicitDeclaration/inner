@@ -1014,7 +1014,7 @@ def std_trainer(model, loader, criterion, optimizer, e):
     print('end of epoch : {}, top1 train acc : {}'.format(e, np.mean(acc)))
     return np.mean(acc)
 
-# python main.py --save_dir ./checkpoints/final/ --mode train --set cifar10  --arch res18_dense --repair_sample_num 1000
+# python main.py --save_dir ./checkpoints/final/ --mode train --set cifar10  --arch res18_dense --repair_sample_num 1000 --rep_type bd
 
 
 if __name__ == '__main__':
