@@ -3,7 +3,7 @@ import sys
 sys.path.append('~/data/attack_type')
 
 from torch.utils.data import DataLoader
-from abstractAdversary import AbstractAdversary
+from data.attack_type.abstractAdversary import AbstractAdversary
 from utils.pytorch_extend import batch_l2Norm_suqare
 
 random_seed = 5566

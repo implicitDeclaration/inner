@@ -3,7 +3,7 @@ sys.path.append('~/data/attack_type')
 
 import torch
 import torch.nn.functional as F
-from abstractAdversary import AbstractAdversary
+from data.attack_type.abstractAdversary import AbstractAdversary
 import logging
 
 PREDICT=0
