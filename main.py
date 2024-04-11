@@ -798,6 +798,7 @@ def layer_rep(model, arch, bd_loader, nor_loader, probe_num, layer_list, mask, n
             optimizer.step()
     else:
         # new_loader = label_align(bd_loader, nor_loader, num_class)
+        # execute in the same loop algorithm.2
         for bd, nor in zip(bd_loader, nor_loader):
             nor_image, bd_image = nor[0].float().to(device), bd[0].float().to(device)
             nor_label, bd_label = nor[1].to(device), bd[1].to(device)
@@ -805,12 +806,10 @@ def layer_rep(model, arch, bd_loader, nor_loader, probe_num, layer_list, mask, n
             bd_batch_size = bd_image.size(0)
             if nor_batch_size > bd_batch_size:
                 nor_image = nor_image[:bd_batch_size]
-
             nor_out = model(nor_image, probe=True)
             nor_out = [n.detach() for n in nor_out]
             bd_out = model(bd_image, probe=True)
             loss = torch.FloatTensor([0.]).to(device)
-
             a = criterion(bd_out[probe_num], bd_label) * alpha  # guide of label
             loss += a
             b = CrossEntropy(bd_out[probe_num], nor_out[probe_num]) * (1 - alpha)  # guide of probe distribution
