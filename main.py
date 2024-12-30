@@ -1,7 +1,7 @@
 import os
 import shutil
 import time
-
+import matplotlib.pyplot as plt
 import torch
 import numpy as np
 from model.cifar10_vgg import get_mask_model_vgg, get_mask_vgg_probe, VGG13_dense, get_mask_model_vgg_dense, VGG16_dense, get_mask_model_vgg16_dense
@@ -1013,11 +1013,228 @@ def std_trainer(model, loader, criterion, optimizer, e):
     print('end of epoch : {}, top1 train acc : {}'.format(e, np.mean(acc)))
     return np.mean(acc)
 
+
+def feature_vis_by_probe(rep, seed, arch='vgg13_dense', attack='bd', dataset='cifar10', assign_layer=None,set_label2=5, tgl=None):
+    font2 = {'family': 'Times New Roman', 'weight': 'normal',  'size': 14,}
+    font_leg = {'family': 'Times New Roman', 'weight': 'normal',  'size': 14,}
+
+    if arch == 'vgg13_dense':
+        prob_bd, prob_std, PROBE_NUM = [], [], 7
+    else:
+        prob_bd, prob_std, PROBE_NUM = [], [], 6
+    std_file = '/public/czh/repair/checkpoints/cifar10/%s/seed%s/%s/model-best.pt' % (arch, seed, attack)
+    bd_file = '/public/czh/repair/checkpoints/cifar10/%s/seed%s/%s/model-best.pt' % (arch, seed, attack)
+
+    p = os.path.join('/public/czh/repair/checkpoints/cifar10', '%s/seed%s/%s/model-best.pt')
+    for i in range(1, PROBE_NUM + 1):
+        block_num = [None, 2,2,1,1,0,0,0]
+        prob_bd.append(
+            p % (arch, seed, '%s_probe_num_%s_layer_%s_block%s' % (attack, 1000, i, block_num[i])))
+        prob_std.append(
+            p % (arch, seed, '%s_probe_num_%s_layer_%s' % ('std', 1000, i)))
+
+    if rep == 'care':
+        care_result = f'/public/czh/care-main/ckpts/{dataset}/{arch}/seed{seed}/{attack}_{1000}/{attack}/result.pt'
+        care_result = torch.load(care_result)
+        rw, ri = care_result['repair weight'], care_result['repair index'].reshape(-1)
+        print(rw)
+        print(ri)
+        bd_model = CAREProbeVGG13_dense(rw, ri, num_class=10)
+        pretrained(bd_file, bd_model, device, prob_bd)
+    elif rep == 'rm':
+        prefix = 'RM/%s_%s_%s_%s_%s/' % (
+        arch, seed, dataset, attack, 1000) + 'model-best.pt'
+        pretrained_weight = os.path.join(f'./checkpoints/repaired/{dataset}', prefix)
+        bd_model = VGG13_dense('VGG13')
+        pretrained(pretrained_weight, bd_model, device, prob_bd)
+
+    elif rep == 'ai':
+        ai_result = f'/public/czh/AILancet/result_per_seed/{dataset}_{arch}_{attack}_{seed}.pt'
+        ai_result = torch.load(ai_result)
+        layer, ratio = ai_result['layer'], ai_result['ratio']
+        bd_model = VGG13_dense('VGG13')
+        get_mask_vgg_probe(bd_model, prob_bd, ratio, seed, layer, bd_file, device, 10,
+                                   '%s_%s' % (attack, dataset), attack)
+    elif rep == 'ours':
+        bd_model = VGG13_dense('VGG13')
+        ours_file = f'./checkpoints/repaired/{dataset}/{arch}/{attack}/seed{seed}/1000_0.0_100/type_{attack}-rep_layer_3-rep_num_1000-ratio_0.0-neuron_100-probe_1000-epoch_7/model-best.pt'
+        pretrained(ours_file, bd_model, device, prob_bd)
+    else:
+        if arch == 'res18_dense':
+            bd_model = cResNet18_Dense()
+            pretrained(bd_file, bd_model, device, prob_bd)
+        else:
+            bd_model = VGG13_dense('VGG13')
+            pretrained(bd_file, bd_model, device, prob_bd)
+
+
+    bd_model.eval()
+    bd_model.to(device)
+    # pair_data = get_backdoor(set='cifar10_pair', num=1000, train=False, mode='ptest', seed=2333, avoid_trg_class=True,
+    #                       RTL=True, process=['std'])
+    print(attack)
+    if attack == 'adv':
+        vis_bd = get_adv_mix('cifar10', args.arch, 1000, ['std'], './datasets/', seed, validate=True)
+        val_bd = get_adv_mix('cifar10', args.arch, 1000, ['std'], './datasets/', seed, validate=True)
+    else:
+        vis_bd = get_backdoor(set='%s_cifar10'%attack, num=1000, train=False, mode='ptest', seed=2333, RTL=True, process=['std'])
+        val_bd = get_backdoor(set='%s_cifar10' % attack, num=1000, train=False, mode='ptest', seed=2333,
+                              avoid_trg_class=True, process=['std'])
+
+    # data_loader = DataLoader(pair_data, batch_size=1, shuffle=True, num_workers=0)
+    rep_clean = get_standard(set='cifar10', num=1000, train=False, seed=2333, process=['std'])
+
+    bd_loader = DataLoader(val_bd, batch_size=32, shuffle=True, num_workers=0)
+    val_loader = DataLoader(rep_clean, batch_size=32, shuffle=True, num_workers=0)
+    visbd_loader = DataLoader(vis_bd, batch_size=1, shuffle=True, num_workers=0)
+    visclean_loader = DataLoader(rep_clean, batch_size=1, shuffle=True, num_workers=0)
+    asr = validate(bd_model, bd_loader, per_class=False, device=gpu)
+    if attack == 'adv':
+        asr = 1- asr
+    acc = validate(bd_model, val_loader, per_class=True, device=gpu)
+    print(f'acc: {np.mean(acc)} asr {asr}\n{acc}')
+    prob_acc = probe_val(bd_model, val_loader, PROBE_NUM, device)
+    print(prob_acc)
+
+    target_label = tgl
+    score = anomaly_select(PROBE_NUM, bd_model, visbd_loader, visclean_loader, set_label2=set_label2,
+                           trigger_label=target_label, device=device)
+    print(f'anomaly score: {score}')
+
+    successed = 0
+    clayers, blayers = [], []
+    for img, label in visclean_loader:
+        if set_label2 is not None and label.item() != set_label2:  # filter clean label
+            continue
+        img, label = img.to(device), label
+        cpreds = bd_model(img, True)
+        cout = torch.argmax(cpreds[-1], 1)
+        # print(f'true label: {label.item()}, clean pred: {cout.item()}')
+        if cout.item() == label.item():  # only use right prediction
+            successed += 1
+        elif target_label == None:
+            successed += 1
+        else:
+            continue
+        c_per_img = []
+        for l in range(len(cpreds)):
+            clayer1 = cpreds[l].cpu().detach().numpy().squeeze()
+            # cnorm = np.linalg.norm(clayer1)
+
+            # l2 normalization
+            # clayer1 = clayer1/cnorm #+ 0.99
+            clayer1 = softmax(clayer1)
+            c_per_img.append(clayer1)
+        clayers.append(c_per_img)
+        if successed == 20:
+            break
+    for img, label in visbd_loader:
+        if set_label2 is not None and label.item() != set_label2:
+            continue
+        img, label = img.to(device), label
+        bpreds = bd_model(img, True)
+        bout = torch.argmax(bpreds[-1], 1)
+        # print(f'true label: {label.item()}, bd pred: {bout.item()}')
+        if target_label != None and bout.item() == target_label:
+            successed += 1
+        elif target_label == None:
+            successed += 1
+        else:
+            continue
+        b_per_img = []
+        for l in range(len(bpreds)):
+            blayer1 = bpreds[l].cpu().detach().numpy().squeeze()
+            # bnorm = np.linalg.norm(blayer1)
+            # l2 normalization
+            # blayer1 = blayer1/bnorm #+ 0.99
+            blayer1 = softmax(blayer1)
+            b_per_img.append(blayer1)
+        blayers.append(b_per_img)
+        if successed == 20:
+            break
+
+    layer_show = ['plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+    layer_show_none = ['' for i in range(len(layer_show))]
+
+    top_layers = len(assign_layer)
+
+    fig = plt.figure(figsize=(3*top_layers, 6))
+    clayers, blayers = np.array(clayers), np.array(blayers)
+    score = np.argsort(-np.array(score))[:top_layers]
+
+    if assign_layer is None:
+        score = np.sort(score)
+    else:
+        score = assign_layer
+    print(f'score rank {score}')
+    #for l in range(PROBE_NUM+1):
+    for idx, l in enumerate(score):
+        xx = list(range(1, 11))
+
+        plt.subplot(2, top_layers, idx+1)
+
+        means = np.mean(clayers[:, l], axis=0)
+        stds = np.std(clayers[:, l], axis=0)
+        # means = softmax(means)
+        ## following is drawing pies for probe results
+        import matplotlib.colors as mcolors
+        colors = list(mcolors.TABLEAU_COLORS.keys())
+        plt.pie(x=means, colors=colors[:10],
+                # explode=(0, 0.2, 0),
+                )
+
+        # >>>>>>>>>>>>>
+        plt.subplot(2, top_layers, idx + 1+ top_layers)
+
+        means = np.mean(blayers[:, l], axis=0)
+        #print(f"bmeans---{means}---")
+        patches, texts = plt.pie(x=means,  colors=colors[:10], # labels=layer_show,
+                # explode=(0, 0.2, 0),
+                )
+
+    fig.tight_layout()
+    plt.savefig('./probePie_%s_%s_%s.pdf' % (rep, arch, attack), ) # bbox_inches='tight', pad_inches=1
+
+
+def neuron_overlap(arch, seed=2022):
+    base_dir = args.save_dir
+    if arch == 'vgg13_dense':
+        blocks = ['features1.3', 'features2.3', 'features3.3', 'features4.3', 'features5.3', 'dense1', 'dense2',
+                  'classifier']
+    else:
+        blocks = ['layer1.1.conv2', 'layer2.1.conv2', 'layer3.1.conv2', 'layer4.1.conv2', 'fc1', 'fc2']
+
+
+    ratios = [0.3, 0.5, 0.7, 1.0]
+    ol_per_layer = []
+
+    for r in ratios:
+        ratio_i = []
+        for b in blocks:
+            compare_base = os.path.join(base_dir, '%s/seed%s/%s/fault_%s_top%s_%s_%s.npy' % (
+                arch, seed, 'bd', b, 100, 0.0, 1000))
+
+            neuron_file = os.path.join(base_dir, '%s/seed%s/%s/fault_%s_top%s_%s_%s.npy' % (
+                arch, seed, 'bd', b, 100, r, 1000))
+            comp_base = np.load(compare_base)
+            comp_with = np.load(neuron_file)
+            total = len(comp_base)
+            eq = [i for i in comp_with if i in comp_base]
+            overlapp_rate = len(eq)/total
+            ratio_i.append(overlapp_rate)
+        ol_per_layer.append(ratio_i)
+    ol_per_layer = np.array(ol_per_layer)
+    print(f'overlap per layer:\n{ol_per_layer}')
+    print(f'overlap average:\n{np.mean(ol_per_layer, axis=1)}')
+
+
 # python main.py --save_dir ./checkpoints/final/ --mode train --set cifar10  --arch res18_dense --repair_sample_num 1000 --rep_type bd
 
 
 if __name__ == '__main__':
     if args.mode == 'test':
+        feature_vis_by_probe('ours', 2022, 'vgg13_dense', 'bd', assign_layer=[0, 1, 2, 3, 4, 5, 6, 7], set_label2=9,
+                             tgl=9)
         sys_test(args, rep='ours', head=False, seed_range=2032)
     elif args.mode == 'train':
         for i in range(10):
